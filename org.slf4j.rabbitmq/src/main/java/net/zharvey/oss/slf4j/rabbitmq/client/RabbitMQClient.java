@@ -22,26 +22,43 @@ public class RabbitMQClient {
 		setRabbitMQProperties(persistentTextPlain);
 	}
 	
-	public void send(String level, String message) {
+	public void send(String level, String message) {i
+		// TODO Refactor - ConnectionFactory should be initialized in the constructor
 		ConnectionFactory factory = new ConnectionFactory();
 		factory.setUsername(config.getUsername());
 		factory.setPassword(config.getPassword());
 		factory.setVirtualHost(config.getVirtualHost());
 		
+		// TODO Improve - Thread pool should be in static
 		ExecutorService executors = Executors.newCachedThreadPool();
 		
+		// TODO Refactor - Address should be initiliazed in the constructor
 		Address address = new Address(config.getHostName(), Integer.valueOf(config.getPortNumber()));
 		Address[] addresses = new Address[1];
 		addresses[0] = address;
 		
 		AMQConnection conn = null;
+		Channel channel = null;
 		try {
+			// TODO Improve - Very costly to open a new connection for every line of log.
 			conn = (AMQConnection)factory.newConnection(executors, addresses);
-			
-			conn.createChannel().basicPublish(config.getExchange() + "-" + level, config.getRoutingKey(), rabbitMQProperties,
-                    message.getBytes());
+			channel = conn.createChannel();
+			//channel.basicPublish(config.getExchange() + "-" + level, config.getRoutingKey(), rabbitMQProperties, message.getBytes());
+			channel.basicPublish(config.getExchange(), config.getRoutingKey(), null, (level + "-" + message).getBytes(StandardCharsets.UTF_8));
 		} catch (IOException ioExc) {
 			throw new RuntimeException(ioExc);
+		} finally {
+			// Close connections
+			try {
+				if (channel != null) {
+					channel.close();
+				}
+				if (conn != null) {
+					conn.close();
+				}
+			} catch (IOException e) {
+				throw new RuntimeException(e);
+			}
 		}
 	}
 	
